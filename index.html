@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1f27" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="宿題チェック">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>宿題チェック</title>
+<style>
+/* Layout: sticky header (class picker + tabs) over one working column; wide tables scroll inside their own box */
+:root{
+  --bg:#f4f6f9; --panel:#ffffff; --ink:#1b2231; --muted:#667085; --line:#dfe3ea; --soft:#eef1f6;
+  --accent:#2e55b8; --accent-ink:#ffffff;
+  --ok:#17824a; --ok-bg:#dcf3e5; --part:#8f6200; --part-bg:#fff0c7; --late:#6a3fc0; --late-bg:#ece4fb;
+  --miss:#c42d2d; --miss-bg:#fde2e2; --abs:#5d6574; --abs-bg:#e6e9ee;
+  --overlay:rgba(15,20,30,.45);
+  --radius:12px;
+  --font:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151b; --panel:#1b1f27; --ink:#e8ebf1; --muted:#9aa2b1; --line:#2c323d; --soft:#232833;
+    --accent:#7e9df0; --accent-ink:#0e1320;
+    --ok:#5ccb8f; --ok-bg:#163a27; --part:#e8b84a; --part-bg:#3a2f12; --late:#b29af3; --late-bg:#2f2546;
+    --miss:#f27f7f; --miss-bg:#46201f; --abs:#a7adb9; --abs-bg:#2a2e36;
+    --overlay:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151b; --panel:#1b1f27; --ink:#e8ebf1; --muted:#9aa2b1; --line:#2c323d; --soft:#232833;
+  --accent:#7e9df0; --accent-ink:#0e1320;
+  --ok:#5ccb8f; --ok-bg:#163a27; --part:#e8b84a; --part-bg:#3a2f12; --late:#b29af3; --late-bg:#2f2546;
+  --miss:#f27f7f; --miss-bg:#46201f; --abs:#a7adb9; --abs-bg:#2a2e36;
+  --overlay:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px 0}
+.hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.02em}
+#sync{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
+#sync.err{color:var(--miss);font-weight:700}
+select,input[type=text],input[type=date],textarea{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:16px}
+#classSel{font-weight:700;min-width:0;max-width:52vw}
+nav{display:flex;gap:2px;margin-top:6px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;padding:9px 12px;border-bottom:3px solid transparent;color:var(--muted);font-weight:700;white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+main{padding-inline:16px;padding-block:16px 48px;max-width:1200px;margin:0 auto}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.btn:hover{background:var(--soft)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--miss);border-color:var(--miss)}
+.btn.danger-fill{background:var(--miss);border-color:var(--miss);color:var(--panel)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:default}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar form{display:flex;gap:8px;flex-wrap:wrap;flex:1 1 320px;min-width:0}
+.toolbar input[type=text]{flex:1 1 160px;min-width:0}
+.spacer{flex:1}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.panel h2{font-size:16px;margin:0 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.empty{text-align:center;padding:40px 16px}
+.empty h2{margin:0 0 8px;text-wrap:balance}
+.empty .row{justify-content:center;margin-top:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rangebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px;color:var(--muted)}
+.rangebar select{font-size:14px;padding:5px 8px}
+.num{font-variant-numeric:tabular-nums}
+
+/* grid */
+.tablewrap{overflow:auto;-webkit-overflow-scrolling:touch;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);max-height:calc(100vh - 250px);max-height:calc(100dvh - 250px);min-height:240px}
+table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
+.grid th,.grid td{border-bottom:1px solid var(--line);padding:3px;text-align:center;background:var(--panel)}
+.grid thead th{position:sticky;top:0;z-index:3;vertical-align:bottom;border-bottom:2px solid var(--line)}
+.grid .sticky{position:sticky;z-index:2}
+.grid thead .sticky{z-index:4}
+.grid .c-no{left:0;min-width:36px;width:36px;color:var(--muted);font-size:13px}
+.grid .c-name{left:36px;min-width:92px;max-width:130px;text-align:left;padding-left:6px;border-right:1px solid var(--line);font-weight:700;font-size:14px;line-height:1.25}
+.grid .c-rate{min-width:58px;font-weight:800;font-size:13px;border-left:1px solid var(--line)}
+.ahead{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;border-radius:8px;width:66px}
+.ahead:hover{background:var(--soft)}
+.at{font-size:12px;font-weight:700;line-height:1.25;max-height:2.5em;overflow:hidden;word-break:break-all}
+.ad{font-size:11px;color:var(--muted)}
+.ar{font-size:12px;font-weight:800}
+.good{color:var(--ok)} .mid{color:var(--part)} .bad{color:var(--miss)}
+.cell{width:40px;height:36px;border:1px dashed var(--line);border-radius:8px;background:transparent;font-weight:800;font-size:16px}
+.cell:active{transform:scale(.94)}
+.s-ok{background:var(--ok-bg);color:var(--ok);border:1px solid transparent}
+.s-part{background:var(--part-bg);color:var(--part);border:1px solid transparent}
+.s-late{background:var(--late-bg);color:var(--late);border:1px solid transparent}
+.s-miss{background:var(--miss-bg);color:var(--miss);border:1px solid transparent}
+.s-abs{background:var(--abs-bg);color:var(--abs);border:1px solid transparent}
+.flag{display:inline-block;margin-left:4px;background:var(--miss);color:var(--panel);border-radius:999px;font-size:10px;padding:0 5px;line-height:16px;vertical-align:1px;white-space:nowrap}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted);align-items:center}
+.legend span.k{display:inline-flex;width:22px;height:20px;border-radius:6px;align-items:center;justify-content:center;font-weight:800;margin-right:3px}
+
+/* input mode */
+.inwrap{max-width:760px;margin:0 auto}
+.inhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.inhead select{flex:1 1 200px;min-width:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:8px 14px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.progress{height:8px;background:var(--soft);border-radius:99px;overflow:hidden;margin:6px 0 14px}
+.progress>div{height:100%;background:var(--accent);transition:width .2s}
+.big{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 16px;text-align:center;margin-bottom:14px}
+.bno{color:var(--muted);font-weight:700}
+.bname{font-size:clamp(28px,8vw,46px);font-weight:800;line-height:1.2;margin:4px 0 10px;word-break:break-all}
+.bstat{display:inline-block;padding:4px 14px;border-radius:999px;font-weight:800}
+.bstat:not([class*="s-"]){background:var(--soft);color:var(--muted)}
+.btns{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+@media (max-width:560px){.btns{grid-template-columns:repeat(3,1fr)}}
+.bigbtn{border-radius:14px;padding:16px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:800;position:relative;border:2px solid transparent}
+.bigbtn .sym{font-size:30px;line-height:1}
+.bigbtn kbd{position:absolute;top:5px;right:8px;font-size:11px;opacity:.55;font-family:inherit}
+.bigbtn.sel{border-color:currentColor}
+.bigbtn:active{transform:scale(.96)}
+.innav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+@media (max-width:560px){.innav{grid-template-columns:repeat(2,1fr)}}
+.innav .btn{padding:12px 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-width:40px;height:36px;border-radius:8px;border:1px dashed var(--line);background:var(--panel);font-weight:800;font-size:13px;padding:0 6px}
+.chip.cur{outline:3px solid var(--accent);outline-offset:1px}
+.hint{font-size:12px;color:var(--muted);margin-top:10px}
+.lrows{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.lrow{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line)}
+.lrow:last-child{border-bottom:0}
+.lrow:not(.has){background:var(--soft)}
+.lno{min-width:2em;color:var(--muted);font-size:13px;text-align:right}
+.lname{flex:1;font-weight:700;min-width:5em;line-height:1.25;word-break:break-all}
+.lbtns{display:flex;gap:5px}
+.lb{width:44px;height:40px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-weight:800;font-size:17px;color:var(--muted)}
+.lb.sel{border:2px solid currentColor}
+.lb.s-ok{background:var(--ok-bg);color:var(--ok)}
+.lb.s-part{background:var(--part-bg);color:var(--part)}
+.lb.s-late{background:var(--late-bg);color:var(--late)}
+.lb.s-miss{background:var(--miss-bg);color:var(--miss)}
+.lb.s-abs{background:var(--abs-bg);color:var(--abs)}
+.lb:active{transform:scale(.94)}
+@media (max-width:420px){.lb{width:34px;height:40px;font-size:15px}.lbtns{gap:3px}.lrow{padding:6px 8px;gap:6px}.lname{font-size:14px}}
+@media (max-width:360px){.lb{width:28px;font-size:14px}.lname{min-width:3.5em}.lno{min-width:1.4em}main{padding-inline:12px}}
+
+/* missing */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;min-width:0}
+.card h3{margin:0;font-size:15px;min-width:0;word-break:break-all}
+.card .meta{font-size:13px;color:var(--muted);margin-bottom:8px}
+.namegroup{margin-top:6px;font-size:14px}
+.namegroup b{display:inline-block;min-width:52px;font-size:12px}
+.nm{display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;border-radius:999px;font-size:13px}
+.follow{list-style:none;margin:0;padding:0}
+.follow li{padding:8px 0;border-bottom:1px solid var(--line);display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap}
+.follow li:last-child{border-bottom:0}
+
+/* settings */
+.clist{list-style:none;padding:0;margin:0 0 12px}
+.clist li{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.clist li .nm2{flex:1;font-weight:700;min-width:6em}
+textarea{width:100%;min-height:240px;font-family:ui-monospace,Menlo,monospace}
+.store{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--soft);font-size:13px}
+.store b{display:block;font-size:14px}
+.notice{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:10px;background:var(--part-bg);color:var(--ink);font-size:13px}
+.notice span{flex:1 1 200px}
+
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:20px;width:min(420px,calc(100vw - 32px))}
+dialog::backdrop{background:var(--overlay)}
+dialog h3{margin:0 0 4px;word-break:break-all}
+dialog label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+dialog label input{display:block;width:100%;margin-top:3px;color:var(--ink)}
+.stack{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.drow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.dmsg{margin:0;white-space:pre-wrap}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(30px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;transition:.25s;pointer-events:none;z-index:50;max-width:calc(100vw - 32px);text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <h1>宿題チェック</h1>
+    <select id="classSel" aria-label="クラス"></select>
+    <span id="sync"></span>
+  </div>
+  <nav>
+    <button class="tab" data-tab="grid">チェック表</button>
+    <button class="tab" data-tab="input">入力</button>
+    <button class="tab" data-tab="missing">未提出・フォロー</button>
+    <button class="tab" data-tab="settings">クラス・名簿</button>
+  </nav>
+</header>
+<main id="main"></main>
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+
+<script>
+const LOCAL_KEY = 'hwcheck.v1', PREF_KEY = 'hwcheck.prefs.v1';
+const STATUS = {
+  ok:   {label:'提出',   sym:'✓'},
+  part: {label:'不十分', sym:'△'},
+  late: {label:'遅れ',   sym:'遅'},
+  miss: {label:'未提出', sym:'✗'},
+  abs:  {label:'欠席',   sym:'休'},
+};
+const KEYS = ['ok','part','late','miss','abs'];
+const CYCLE = ['', ...KEYS];
+const SUBMITTED = new Set(['ok','part','late']);
+const RANGES = {'10':'直近10件', '20':'直近20件', 'month':'今月', 'all':'すべて'};
+
+let S = {classes:[], assignments:[], marks:{}};
+let P = loadPrefs();          // 端末ごとの表示設定
+let mode = 'connecting';      // 'cloud' | 'local' | 'connecting'
+let DB = null;
+let BASE = '';          // 各自のデータの置き場所 data/users/<id>/root/
+let localReason = '';
+let classesLoaded = false, loadedFor = null, dbBroken = false, syncErr = false;
+
+const $ = q => document.querySelector(q);
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function today(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function md(s){ if(!s) return ''; const [,m,d]=s.split('-'); return `${+m}/${+d}`; }
+const pct = r => r==null ? '—' : Math.round(r*100)+'%';
+const rateCls = r => r==null ? '' : r>=.9 ? 'good' : r>=.7 ? 'mid' : 'bad';
+
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+function loadPrefs(){ return Object.assign({tab:'grid', cur:null, inputA:null, inputIdx:0, inputView:'one', range:'10'}, lsGet(PREF_KEY)||{}); }
+function savePrefs(){ lsSet(PREF_KEY, P); }
+let localWarned = false;
+function saveLocal(){
+  if(mode!=='local') return;
+  if(!lsSet(LOCAL_KEY, S) && !localWarned){ localWarned = true; toast('この画面ではデータを保存できません。バックアップを保存してください'); }
+}
+
+/* ---------- 保存（クラウド：1件ずつ・同じ文書への書き込みはまとめる） ---------- */
+const pending = new Set(), queues = new Map(), waiters = [];
+let active = 0;
+function slot(){ if(active<4){ active++; return Promise.resolve(); } return new Promise(r=>waiters.push(r)); }
+function release(){ const w=waiters.shift(); if(w) w(); else active--; }
+function persist(path, build){
+  if(mode!=='cloud'){ saveLocal(); return; }
+  let q = queues.get(path);
+  if(!q){ q={busy:false, dirty:false, tries:0}; queues.set(path,q); }
+  q.build = build; q.dirty = true; pending.add(path); setSync();
+  if(!q.busy) flush(path,q);
+}
+async function flush(path,q){
+  q.busy = true;
+  while(q.dirty){
+    q.dirty = false;
+    const data = q.build();
+    await slot();
+    try{
+      const ref = DB.doc(BASE+path);
+      if(data) await ref.set(data); else await ref.delete();
+      q.tries = 0;
+    }catch(e){
+      const c = e && e.code;
+      if((c==='unavailable' || c==='resource_exhausted') && q.tries<5){
+        q.tries++; q.dirty = true; release();
+        await sleep(700*q.tries + Math.random()*500);
+        continue;
+      }
+      q.tries = 0; syncErr = true;
+      toast(c==='quota_exceeded' ? '保存容量の上限に達しました。使わないクラスを削除してください' : `保存できませんでした（${c||'通信エラー'}）。通信を確認してもう一度操作してください`);
+    }
+    release();
+  }
+  q.busy = false; pending.delete(path); queues.delete(path); setSync();
+}
+function saveMarks(aid){
+  const cid = (S.assignments.find(a=>a.id===aid)||{}).classId || P.cur;
+  persist('marks/'+aid, ()=>({classId:cid, m:{...(S.marks[aid]||{})}}));
+}
+function saveAssign(aid){
+  persist('assigns/'+aid, ()=>{
+    const a = S.assignments.find(x=>x.id===aid);
+    return a ? {classId:a.classId, title:a.title, due:a.due||'', createdAt:a.createdAt||0} : null;
+  });
+}
+function saveClass(cid){
+  persist('classes/'+cid, ()=>{
+    const c = S.classes.find(x=>x.id===cid);
+    return c ? {name:c.name, students:c.students.map(s=>({id:s.id, no:s.no, name:s.name})), createdAt:c.createdAt||0} : null;
+  });
+}
+function setSync(){
+  const el = $('#sync'); if(!el) return;
+  el.classList.toggle('err', dbBroken || syncErr);
+  if(mode==='connecting') el.textContent = '接続中…';
+  else if(mode==='local') el.textContent = 'この端末に保存';
+  else if(dbBroken) el.textContent = '接続が切れました・再読み込みしてください';
+  else el.textContent = pending.size ? '保存中…' : (syncErr ? '保存エラーあり' : '✓ 保存済み');
+}
+
+/* ---------- クラウドの読み込み ---------- */
+function mergeList(docs, local, prefix){
+  const out = [], seen = new Set();
+  for(const d of docs){
+    seen.add(d.id);
+    if(pending.has(prefix+d.id)){ const l = local.find(x=>x.id===d.id); if(l) out.push(l); }
+    else out.push({id:d.id, ...d.data()});
+  }
+  for(const l of local) if(!seen.has(l.id) && pending.has(prefix+l.id)) out.push(l);
+  return out;
+}
+function dbFail(e){
+  dbBroken = true; setSync();
+  toast('データとの接続が切れました。ページを再読み込みしてください');
+}
+function startCloud(){
+  DB.collection(BASE+'classes').onSnapshot(snap=>{
+    S.classes = mergeList(snap.docs, S.classes, 'classes/').sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    classesLoaded = true;
+    watchClass(); scheduleRender();
+  }, dbFail);
+}
+let watched, unA = null, unM = null;
+function watchClass(){
+  if(mode!=='cloud') return;
+  const cid = (curClass()||{}).id || null;
+  if(cid===watched) return;
+  if(unA) unA(); if(unM) unM();
+  watched = cid; loadedFor = null;
+  S.assignments = S.assignments.filter(a=>a.classId===cid);
+  const keep = new Set(S.assignments.map(a=>a.id));
+  for(const k in S.marks) if(!keep.has(k) && !pending.has('marks/'+k)) delete S.marks[k];
+  if(!cid) return;
+  let gotA = false, gotM = false;
+  unA = DB.collection(BASE+'assigns').where('classId','==',cid).limit(1000).onSnapshot(snap=>{
+    if(watched!==cid) return;
+    S.assignments = mergeList(snap.docs, S.assignments, 'assigns/');
+    gotA = true; if(gotM) loadedFor = cid; scheduleRender();
+  }, dbFail);
+  unM = DB.collection(BASE+'marks').where('classId','==',cid).limit(1000).onSnapshot(snap=>{
+    if(watched!==cid) return;
+    const nm = {}, seen = new Set();
+    for(const d of snap.docs){
+      seen.add(d.id);
+      nm[d.id] = pending.has('marks/'+d.id) ? (S.marks[d.id]||{}) : {...((d.data()||{}).m||{})};
+    }
+    for(const k in S.marks) if(!seen.has(k) && pending.has('marks/'+k)) nm[k] = S.marks[k];
+    S.marks = nm;
+    gotM = true; if(gotA) loadedFor = cid; scheduleRender();
+  }, dbFail);
+}
+// 文字入力中は画面を書き換えない（入力が消えないように）
+let renderWaiting = false;
+function scheduleRender(){
+  const ae = document.activeElement;
+  if(ae && (ae.tagName==='TEXTAREA' || (ae.tagName==='INPUT' && ae.type==='text'))){ renderWaiting = true; return; }
+  render();
+}
+document.addEventListener('focusout', ()=>{ if(renderWaiting){ renderWaiting=false; setTimeout(render,0); } });
+
+/* ---------- データの参照・集計 ---------- */
+function curClass(){ return S.classes.find(c=>c.id===P.cur) || S.classes[0] || null; }
+function assignsOf(cid){
+  return S.assignments.filter(a=>a.classId===cid)
+    .sort((x,y)=>(x.due||'').localeCompare(y.due||'') || (x.createdAt||0)-(y.createdAt||0));
+}
+function visibleAssigns(cid){
+  const all = assignsOf(cid);
+  if(P.range==='all') return all;
+  if(P.range==='month'){ const m = today().slice(0,7); return all.filter(a=>(a.due||'').startsWith(m)); }
+  return all.slice(-(+P.range||10));
+}
+function getMark(aid,sid){ return (S.marks[aid]||{})[sid] || ''; }
+function setMark(aid,sid,v){
+  const m = {...(S.marks[aid]||{})};
+  if(v) m[sid] = v; else delete m[sid];
+  S.marks[aid] = m;
+  saveMarks(aid);
+}
+// 宿題ごと：提出率 = 提出(✓△遅) ÷ 欠席を除いた人数
+function aStats(a, cls){
+  const c = {ok:0,part:0,late:0,miss:0,abs:0,blank:0};
+  for(const s of cls.students) c[getMark(a.id,s.id)||'blank']++;
+  c.sub = c.ok+c.part+c.late;
+  const den = cls.students.length - c.abs;
+  c.rate = den>0 ? c.sub/den : null;
+  return c;
+}
+// 生徒ごと：未入力・欠席は分母に含めない
+function sStats(s, list){
+  let sub=0, den=0, miss=0;
+  for(const a of list){
+    const m = getMark(a.id,s.id);
+    if(!m || m==='abs') continue;
+    den++;
+    if(SUBMITTED.has(m)) sub++;
+    if(m==='miss') miss++;
+  }
+  return {sub, den, miss, rate: den ? sub/den : null};
+}
+function missStreak(s, list){
+  let k=0;
+  for(let i=list.length-1;i>=0;i--){
+    const m = getMark(list[i].id, s.id);
+    if(!m || m==='abs') continue;
+    if(m==='miss') k++; else break;
+  }
+  return k;
+}
+
+/* ---------- 画面 ---------- */
+function render(){
+  const wrap = $('.tablewrap');
+  const keep = wrap ? [wrap.scrollLeft, wrap.scrollTop] : null;
+  const cls = curClass();
+  if(cls && P.cur!==cls.id){ P.cur = cls.id; savePrefs(); }
+  $('#classSel').innerHTML = S.classes.length
+    ? S.classes.map(c=>`<option value="${c.id}" ${cls&&c.id===cls.id?'selected':''}>${esc(c.name)}</option>`).join('')
+    : '<option>クラス未登録</option>';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===P.tab));
+  setSync();
+  const main = $('#main');
+  if(mode==='connecting' || (mode==='cloud' && !classesLoaded)){ main.innerHTML = loadingView(); return; }
+  if(!cls && P.tab!=='settings'){ main.innerHTML = emptyView(); return; }
+  if(cls && mode==='cloud' && loadedFor!==cls.id && P.tab!=='settings'){ main.innerHTML = loadingView(); return; }
+  main.innerHTML = backupBanner() + ({grid:gridView, input:inputView, missing:missingView, settings:settingsView})[P.tab](cls);
+  const w2 = $('.tablewrap');
+  if(w2 && keep){ w2.scrollLeft = keep[0]; w2.scrollTop = keep[1]; }
+}
+// 端末保存のときは、しばらくバックアップしていなければ知らせる
+function backupBanner(){
+  if(mode!=='local' || !S.assignments.length) return '';
+  const days = P.lastBackup ? Math.floor((Date.now()-P.lastBackup)/86400000) : null;
+  if(days!==null && days<14) return '';
+  return `<div class="notice"><span>${days===null ? 'まだバックアップがありません。' : `最後のバックアップから${days}日たっています。`}記録はこの端末の中だけにあります。</span>
+    <button class="btn sm" data-act="backup">今すぐバックアップ</button></div>`;
+}
+function loadingView(){ return `<div class="panel empty"><h2>読み込み中…</h2><p class="muted">保存されたクラスと記録を読み込んでいます。</p></div>`; }
+function emptyView(){
+  return `<div class="panel empty">
+    <h2>まずクラスを登録しましょう</h2>
+    <p class="muted">クラスを作って名簿を貼り付けると、すぐにチェックを始められます。</p>
+    <div class="row">
+      <button class="btn pri" data-act="goto" data-tab="settings">クラスを作成</button>
+      <button class="btn" data-act="sample">サンプルで試す</button>
+    </div></div>`;
+}
+function rangeBar(cid){
+  const all = assignsOf(cid).length, vis = visibleAssigns(cid).length;
+  return `<div class="rangebar"><label for="rangeSel">表示</label>
+    <select id="rangeSel">${Object.entries(RANGES).map(([k,v])=>`<option value="${k}" ${P.range===k?'selected':''}>${v}</option>`).join('')}</select>
+    <span class="num">全${all}件中 ${vis}件</span></div>`;
+}
+function legend(){
+  return `<div class="legend">タップで切り替え：
+    ${KEYS.map(k=>`<span><span class="k s-${k}">${STATUS[k].sym}</span>${STATUS[k].label}</span>`).join('')}
+    <span>／宿題名をタップでメニュー</span></div>`;
+}
+
+function gridView(cls){
+  const list = visibleAssigns(cls.id);
+  const toolbar = `<div class="toolbar">
+    <form id="addA">
+      <input type="text" id="aTitle" placeholder="宿題名（例：ワーク p.24〜25）" required autocomplete="off">
+      <input type="date" id="aDue" value="${today()}" aria-label="期限">
+      <button class="btn pri">＋ 追加</button>
+    </form>
+    <button class="btn" data-act="csv">CSV出力</button>
+  </div>`;
+  if(!cls.students.length){
+    return toolbar + `<div class="panel empty"><h2>名簿が空です</h2><p class="muted">「クラス・名簿」で生徒を登録してください。</p>
+      <button class="btn pri" data-act="goto" data-tab="settings">名簿を登録</button></div>`;
+  }
+  if(!assignsOf(cls.id).length){
+    return toolbar + `<div class="panel empty"><h2>宿題を追加しましょう</h2><p class="muted">上の欄に宿題名を入れて「＋ 追加」を押してください。</p></div>`;
+  }
+  if(!list.length){
+    return toolbar + rangeBar(cls.id) + `<div class="panel empty"><h2>この期間の宿題はありません</h2><p class="muted">「表示」を切り替えてください。</p></div>`;
+  }
+  const head = list.map(a=>{
+    const st = aStats(a,cls);
+    return `<th><button class="ahead" data-act="amenu" data-a="${a.id}" title="${esc(a.title)}">
+      <span class="at">${esc(a.title)}</span><span class="ad">${md(a.due)}</span>
+      <span class="ar num ${rateCls(st.rate)}">${pct(st.rate)}</span></button></th>`;
+  }).join('');
+  const all = assignsOf(cls.id);
+  const body = cls.students.map(s=>{
+    const ss = sStats(s,list), k = missStreak(s,all);
+    const cells = list.map(a=>{
+      const m = getMark(a.id,s.id);
+      return `<td><button class="cell ${m?'s-'+m:''}" data-act="cycle" data-a="${a.id}" data-s="${s.id}"
+        aria-label="${esc(s.name)} ${esc(a.title)} ${m?STATUS[m].label:'未入力'}">${m?STATUS[m].sym:''}</button></td>`;
+    }).join('');
+    return `<tr><td class="sticky c-no num">${esc(s.no)}</td>
+      <td class="sticky c-name">${esc(s.name)}${k>=2?`<span class="flag" title="${k}回連続で未提出">${k}連続</span>`:''}</td>
+      ${cells}<td class="c-rate num ${rateCls(ss.rate)}">${pct(ss.rate)}</td></tr>`;
+  }).join('');
+  return toolbar + rangeBar(cls.id) + `<div class="tablewrap"><table class="grid">
+    <thead><tr><th class="sticky c-no">番</th><th class="sticky c-name">名前</th>${head}<th class="c-rate">提出率</th></tr></thead>
+    <tbody>${body}</tbody></table></div>` + legend();
+}
+
+function inputView(cls){
+  const list = assignsOf(cls.id);
+  if(!cls.students.length || !list.length){
+    return `<div class="panel empty"><h2>${!cls.students.length?'名簿が空です':'宿題がまだありません'}</h2>
+      <p class="muted">${!cls.students.length?'「クラス・名簿」で名簿を登録してください。':'「チェック表」で宿題を追加してください。'}</p></div>`;
+  }
+  if(!list.find(a=>a.id===P.inputA)) P.inputA = list[list.length-1].id;
+  const a = list.find(x=>x.id===P.inputA);
+  const studs = cls.students;
+  P.inputIdx = Math.max(0, Math.min(P.inputIdx||0, studs.length-1));
+  const s = studs[P.inputIdx];
+  const m = getMark(a.id, s.id);
+  const st = aStats(a, cls);
+  const done = studs.length - st.blank;
+  const isList = P.inputView === 'list';
+  const head = `<div class="inhead">
+      <select id="inSel" aria-label="宿題">${list.slice().reverse().map(x=>`<option value="${x.id}" ${x.id===a.id?'selected':''}>${esc(x.title)}（${md(x.due)}）</option>`).join('')}</select>
+      <div class="seg" role="group" aria-label="入力のしかた">
+        <button class="${isList?'':'on'}" data-act="inview" data-v="one">1人ずつ</button>
+        <button class="${isList?'on':''}" data-act="inview" data-v="list">一覧</button>
+      </div>
+    </div>
+    <div class="small muted num">入力済 <b>${done}</b> / ${studs.length}　提出率 <b class="${rateCls(st.rate)}">${pct(st.rate)}</b>
+      　✓${st.ok} △${st.part} 遅${st.late} ✗${st.miss} 休${st.abs}</div>
+    <div class="progress"><div style="width:${done/studs.length*100}%"></div></div>`;
+  if(isList) return `<div class="inwrap">${head}${listInput(a, studs)}</div>`;
+  return `<div class="inwrap">${head}
+    <div class="big">
+      <div class="bno">${esc(s.no)}番</div>
+      <div class="bname">${esc(s.name)}</div>
+      <span class="bstat ${m?'s-'+m:''}">${m?STATUS[m].sym+' '+STATUS[m].label:'未入力'}</span>
+    </div>
+    <div class="btns">
+      ${KEYS.map((k,i)=>`<button class="bigbtn s-${k} ${m===k?'sel':''}" data-act="setin" data-v="${k}">
+        <span class="sym">${STATUS[k].sym}</span><span>${STATUS[k].label}</span><kbd>${i+1}</kbd></button>`).join('')}
+    </div>
+    <div class="innav">
+      <button class="btn" data-act="prev">◀ 前へ</button>
+      <button class="btn" data-act="next">次へ ▶</button>
+      <button class="btn" data-act="clearin">クリア</button>
+      <button class="btn" data-act="nextblank">次の未入力へ</button>
+    </div>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <b class="small">出席番号から選ぶ</b>
+        <span class="row">
+          <button class="btn sm" data-act="restok">未入力を全員✓</button>
+          <button class="btn sm" data-act="restmiss">未入力を全員✗</button>
+        </span>
+      </div>
+      <div class="chips">${studs.map((x,j)=>{const mm=getMark(a.id,x.id);
+        return `<button class="chip num ${mm?'s-'+mm:''} ${j===P.inputIdx?'cur':''}" data-act="jump" data-i="${j}" title="${esc(x.name)}">${esc(x.no)}</button>`}).join('')}</div>
+      <div class="hint">入力すると自動で次の生徒へ進みます。PCではキーボードの 1〜5 で入力、← → で移動、0 でクリア。</div>
+    </div>
+  </div>`;
+}
+function listInput(a, studs){
+  const opts = KEYS.map(k=>`<option value="${k}" ${k==='miss'?'selected':''}>${STATUS[k].sym} ${STATUS[k].label}</option>`).join('');
+  return `<div class="panel">
+      <form id="bulkForm" class="row">
+        <input type="text" id="bulkNos" inputmode="numeric" autocomplete="off" placeholder="番号（例：3 5 12、8-10）" style="flex:1 1 180px;min-width:0">
+        <select id="bulkSt" aria-label="状態">${opts}</select>
+        <button class="btn pri">まとめて入力</button>
+      </form>
+      <div class="row" style="margin-top:8px">
+        <span class="small muted">残り（未入力）を</span>
+        <button class="btn sm" data-act="restok">全員✓</button>
+        <button class="btn sm" data-act="restmiss">全員✗</button>
+        <span class="spacer"></span>
+        <button class="btn sm" data-act="clearall">入力をすべてクリア</button>
+      </div>
+      <div class="hint">よく使う流れ：未提出・不十分の番号だけ入力 →「残りを全員✓」</div>
+    </div>
+    <div class="lrows">${studs.map(s=>{
+      const m = getMark(a.id, s.id);
+      return `<div class="lrow ${m?'has':''}">
+        <span class="lno num">${esc(s.no)}</span><span class="lname">${esc(s.name)}</span>
+        <span class="lbtns">${KEYS.map(k=>`<button class="lb ${m===k?'s-'+k+' sel':''}" data-act="lset" data-s="${s.id}" data-v="${k}" title="${STATUS[k].label}" aria-pressed="${m===k}">${STATUS[k].sym}</button>`).join('')}</span>
+      </div>`;
+    }).join('')}</div>`;
+}
+function parseNos(text){
+  const out = new Set();
+  const norm = text.replace(/[０-９]/g, d=>String.fromCharCode(d.charCodeAt(0)-0xFEE0));
+  for(const part of norm.split(/[\s,、，.．]+/)){
+    const r = part.match(/^(\d+)[-~〜ー－](\d+)$/);
+    if(r){ for(let i=+r[1]; i<=+r[2] && i-r[1]<200; i++) out.add(String(i)); }
+    else if(/^\d+$/.test(part)) out.add(String(+part));
+  }
+  return out;
+}
+
+function missingView(cls){
+  const all = assignsOf(cls.id);
+  if(!all.length) return `<div class="panel empty"><h2>宿題がまだありません</h2></div>`;
+  const list = visibleAssigns(cls.id);
+  const follow = cls.students.map(s=>({s, k:missStreak(s,all), ss:sStats(s,all)}))
+    .filter(x=>x.k>=2 || (x.ss.den>=3 && x.ss.rate<.7))
+    .sort((p,q)=>q.k-p.k || p.ss.rate-q.ss.rate);
+  const followHtml = follow.length
+    ? `<ul class="follow">${follow.map(x=>`<li><b class="num" style="min-width:2em">${esc(x.s.no)}</b><span style="flex:1;min-width:6em;font-weight:700">${esc(x.s.name)}</span>
+        ${x.k>=2?`<span class="nm s-miss">${x.k}回連続 未提出</span>`:''}
+        <span class="small num ${rateCls(x.ss.rate)}">提出率 ${pct(x.ss.rate)}（未提出 ${x.ss.miss}回）</span></li>`).join('')}</ul>`
+    : `<p class="muted small">該当する生徒はいません。</p>`;
+  const group = (a,k) => {
+    const ns = cls.students.filter(s=>getMark(a.id,s.id)===k);
+    return ns.length ? `<div class="namegroup"><b>${STATUS[k].label}</b>${ns.map(s=>`<span class="nm s-${k}">${esc(s.no)} ${esc(s.name)}</span>`).join('')}</div>` : '';
+  };
+  const cards = list.slice().reverse().map(a=>{
+    const st = aStats(a,cls);
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><h3>${esc(a.title)}</h3>
+        <button class="btn sm" data-act="copymiss" data-a="${a.id}" style="flex:none">コピー</button></div>
+      <div class="meta num">期限 ${md(a.due)}・提出率 <b class="${rateCls(st.rate)}">${pct(st.rate)}</b>（${st.sub}/${cls.students.length-st.abs}）${st.blank?`・未入力 ${st.blank}人`:''}</div>
+      ${group(a,'miss')}${group(a,'part')}${group(a,'late')}
+      ${!st.miss&&!st.part&&!st.late?'<div class="small muted">未提出・不十分はありません。</div>':''}
+    </div>`;
+  }).join('');
+  return `<div class="panel"><h2>要フォロー</h2><p class="small muted" style="margin-top:-6px">これまでの全宿題で、2回以上連続で未提出か、提出率70%未満（3回以上チェック済み）の生徒</p>${followHtml}</div>
+    <h2 style="font-size:16px;margin:0 0 8px">宿題ごと（新しい順）</h2>${rangeBar(cls.id)}<div class="cards">${cards}</div>`;
+}
+
+function settingsView(cls){
+  const classes = S.classes.map(c=>`<li><span class="nm2">${esc(c.name)}</span><span class="small muted num">${c.students.length}人</span>
+    <button class="btn sm" data-act="selclass" data-c="${c.id}" ${cls&&c.id===cls.id?'disabled':''}>${cls&&c.id===cls.id?'選択中':'選択'}</button>
+    <button class="btn sm" data-act="renclass" data-c="${c.id}">名前変更</button>
+    <button class="btn sm danger" data-act="delclass" data-c="${c.id}">削除</button></li>`).join('');
+  const roster = cls ? cls.students.map(s=>`${s.no} ${s.name}`).join('\n') : '';
+  const why = localReason==='perm' ? '共有されたときの権限が「閲覧のみ」のため、アカウントには保存できません。'
+    : localReason==='signin' ? 'Claudeにサインインすると、アカウントに保存して他の端末でも使えます。' : '';
+  const store = mode==='cloud'
+    ? `<div class="store"><span>☁</span><div><b>あなたのClaudeアカウントに保存しています</b>PCでもスマホでも、このページを開けば同じデータを使えます。このページを他の先生と共有しても、記録はそれぞれ本人にしか見えません。</div></div>`
+    : `<div class="store"><span>⚠</span><div><b>この端末の中にだけ保存しています</b>${why}別の端末とは共有されません。機種変更や端末の移し替えのときは、バックアップを保存して新しい端末で読み込んでください。${P.lastBackup?`（最後のバックアップ：${new Date(P.lastBackup).toLocaleDateString('ja-JP')}）`:''}</div></div>`;
+  return `<div class="panel"><h2>クラス</h2>
+      ${S.classes.length?`<ul class="clist">${classes}</ul>`:'<p class="muted small">まだクラスがありません。</p>'}
+      <form id="addC" class="row"><input type="text" id="cName" placeholder="クラス名（例：1年A組）" required autocomplete="off" style="flex:1 1 180px;min-width:0"><button class="btn pri">＋ クラスを追加</button></form>
+    </div>
+    ${cls?`<div class="panel"><h2>名簿：${esc(cls.name)}</h2>
+      <p class="small muted" style="margin-top:-6px">1行に1人。「番号 名前」または名前だけ（番号は自動で振ります）。Excelの2列をそのまま貼り付けてもOK。名前が同じ生徒は記録が引き継がれます。</p>
+      <textarea id="roster" placeholder="1 山田 太郎&#10;2 鈴木 花子&#10;3 ...">${esc(roster)}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn pri" data-act="saveroster">名簿を保存</button></div>
+    </div>`:''}
+    <div class="panel"><h2>データ</h2>
+      ${store}
+      <div class="row" style="margin-top:12px">
+        <button class="btn" data-act="backup">バックアップを保存</button>
+        <label class="btn" for="restore">バックアップから読み込む</label>
+        <input type="file" id="restore" accept="application/json,.json" hidden>
+        <button class="btn" data-act="sample">サンプルを追加</button>
+        <span class="spacer"></span>
+        <button class="btn danger" data-act="wipe">すべて削除</button>
+      </div>
+    </div>`;
+}
+
+/* ---------- ダイアログ・通知 ---------- */
+function openDlg(html){ const d=$('#dlg'); d.innerHTML=html; if(!d.open) d.showModal(); }
+function closeDlg(){ const d=$('#dlg'); if(d.open) d.close(); }
+$('#dlg').addEventListener('click', e=>{ if(e.target.id==='dlg') closeDlg(); });
+function ask(msg, okLabel='削除する', danger=true){
+  return new Promise(res=>{
+    let done = false; const fin = v=>{ if(!done){ done=true; res(v); } };
+    openDlg(`<p class="dmsg">${esc(msg)}</p><div class="drow"><button class="btn" id="dNo">キャンセル</button><button class="btn ${danger?'danger-fill':'pri'}" id="dYes">${esc(okLabel)}</button></div>`);
+    $('#dNo').onclick = ()=>{ fin(false); closeDlg(); };
+    $('#dYes').onclick = ()=>{ fin(true); closeDlg(); };
+    $('#dlg').addEventListener('close', ()=>fin(false), {once:true});
+  });
+}
+function askText(title, def){
+  return new Promise(res=>{
+    let done = false; const fin = v=>{ if(!done){ done=true; res(v); } };
+    openDlg(`<h3>${esc(title)}</h3><form id="dForm"><input type="text" id="dIn" value="${esc(def)}" style="width:100%;margin-top:8px" autocomplete="off">
+      <div class="drow"><button type="button" class="btn" id="dNo">キャンセル</button><button class="btn pri">保存</button></div></form>`);
+    $('#dNo').onclick = ()=>{ fin(null); closeDlg(); };
+    $('#dForm').onsubmit = e=>{ e.preventDefault(); e.stopPropagation(); fin($('#dIn').value.trim()); closeDlg(); };
+    $('#dlg').addEventListener('close', ()=>fin(null), {once:true});
+    setTimeout(()=>$('#dIn')?.focus(), 30);
+  });
+}
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+async function saveFile(name, text){
+  const dl = (window.claude && typeof window.claude.use==='function') ? await window.claude.use('downloads').catch(()=>null) : null;
+  if(dl){
+    try{ await dl.save({filename:name, data:text}); return true; }
+    catch(e){ if(e && e.code!=='declined') toast(`ファイルを保存できませんでした（${e.code||'エラー'}）`); }
+    return false;
+  }
+  if(window.claude){ toast('この画面ではファイルを保存できません'); return; }
+  // スマホでは共有シートから「ファイルに保存」やメール送信を選べるようにする
+  try{
+    const file = new File([text], name, {type: name.endsWith('.csv') ? 'text/csv' : 'application/json'});
+    if(matchMedia('(pointer:coarse)').matches && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file]});
+      return true;
+    }
+  }catch(e){ if(e && e.name==='AbortError') return false; }
+  const url = URL.createObjectURL(new Blob([text]));
+  const a = document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  return true;
+}
+function copyText(t){
+  const fallback = ()=>{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); toast('コピーしました'); }catch(e){ toast('コピーできませんでした'); } ta.remove(); };
+  try{ navigator.clipboard.writeText(t).then(()=>toast('コピーしました'), fallback); }catch(e){ fallback(); }
+}
+
+function exportCSV(cls){
+  const list = assignsOf(cls.id);
+  const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const rows = [['番号','名前',...list.map(a=>`${a.title}（${md(a.due)}）`),'提出率','未提出回数']];
+  for(const s of cls.students){
+    const ss = sStats(s,list);
+    rows.push([s.no, s.name, ...list.map(a=>{const m=getMark(a.id,s.id); return m?STATUS[m].label:'';}), ss.rate==null?'':Math.round(ss.rate*100)+'%', ss.miss]);
+  }
+  rows.push(['','提出率', ...list.map(a=>pct(aStats(a,cls).rate)), '', '']);
+  saveFile(`宿題チェック_${cls.name}_${today()}.csv`, '﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'));
+}
+
+function parseRoster(text, old){
+  let auto = 0;
+  return text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{
+    const m = l.match(/^(\d+)\s*(?:番)?[\s\t,、.．:：]*(.+)$/);
+    let no, name;
+    if(m){ no=m[1]; name=m[2].trim(); auto=+no; } else { no=String(++auto); name=l; }
+    name = name.replace(/\t/g,' ');
+    const prev = old.find(o=>o.name===name);
+    return {id: prev ? prev.id : uid(), no, name};
+  });
+}
+
+async function collectAll(){
+  if(mode!=='cloud') return {classes:S.classes, assignments:S.assignments, marks:S.marks};
+  const out = {classes:S.classes.map(c=>({...c})), assignments:[], marks:{}};
+  for(const c of S.classes){
+    const [as, ms] = await Promise.all([
+      DB.collection(BASE+'assigns').where('classId','==',c.id).limit(1000).get(),
+      DB.collection(BASE+'marks').where('classId','==',c.id).limit(1000).get(),
+    ]);
+    as.docs.forEach(d=>out.assignments.push({id:d.id, ...d.data()}));
+    ms.docs.forEach(d=>{ out.marks[d.id] = {...((d.data()||{}).m||{})}; });
+  }
+  return out;
+}
+// バックアップを読み込む：同じIDのクラス・宿題は上書き、それ以外は追加
+function importData(j){
+  for(const c of j.classes){
+    const nc = {id:c.id, name:c.name, students:(c.students||[]).map(s=>({id:s.id,no:String(s.no),name:s.name})), createdAt:c.createdAt||Date.now()};
+    S.classes = S.classes.filter(x=>x.id!==nc.id).concat(nc);
+    persist('classes/'+nc.id, ()=>({name:nc.name, students:nc.students, createdAt:nc.createdAt}));
+  }
+  const cidOf = {};
+  for(const a of (j.assignments||[])){
+    const na = {id:a.id, classId:a.classId, title:a.title, due:a.due||'', createdAt:a.createdAt||0};
+    cidOf[na.id] = na.classId;
+    S.assignments = S.assignments.filter(x=>x.id!==na.id).concat(na);
+    persist('assigns/'+na.id, ()=>({classId:na.classId, title:na.title, due:na.due, createdAt:na.createdAt}));
+  }
+  for(const [aid, m] of Object.entries(j.marks||{})){
+    if(!cidOf[aid]) continue;
+    const mm = {...m};
+    S.marks[aid] = mm;
+    persist('marks/'+aid, ()=>({classId:cidOf[aid], m:mm}));
+  }
+  watched = undefined; watchClass();
+}
+
+async function removeClass(cid){
+  let aids = S.assignments.filter(a=>a.classId===cid).map(a=>a.id);
+  if(mode==='cloud'){
+    try{ const snap = await DB.collection(BASE+'assigns').where('classId','==',cid).limit(1000).get(); aids = [...new Set([...aids, ...snap.docs.map(d=>d.id)])]; }catch(e){}
+  }
+  S.classes = S.classes.filter(c=>c.id!==cid);
+  S.assignments = S.assignments.filter(a=>a.classId!==cid);
+  aids.forEach(id=>{ delete S.marks[id]; });
+  if(mode==='cloud'){
+    aids.forEach(id=>{ persist('assigns/'+id, ()=>null); persist('marks/'+id, ()=>null); });
+    persist('classes/'+cid, ()=>null);
+  } else saveLocal();
+  if(P.cur===cid){ P.cur = null; savePrefs(); }
+  watchClass();
+}
+
+function addSample(){
+  const fam=['青木','石田','上野','遠藤','大野','加藤','木村','工藤','小林','佐藤','清水','鈴木','高橋','田中','中村','西村','野口','橋本','林','藤田','前田','松本','三浦','村上','森','山口','山田','吉田','渡辺','和田'];
+  const giv=['陽太','さくら','蓮','結衣','湊','葵','大和','凛','悠真','美咲'];
+  const c = {id:uid(), name:`サンプル${S.classes.length+1}組`, createdAt:Date.now(), students: fam.map((f,i)=>({id:uid(), no:String(i+1), name:`${f} ${giv[(i*7)%giv.length]}`}))};
+  S.classes.push(c); P.cur = c.id; savePrefs();
+  saveClass(c.id); watchClass();
+  const titles=['ワーク p.12〜13','計算プリント①','ワーク p.18〜19','計算プリント②','教科書 p.40 問1〜5'];
+  const base = new Date(); base.setDate(base.getDate()-12);
+  titles.forEach((t,i)=>{
+    const d = new Date(base); d.setDate(base.getDate()+i*3);
+    const a = {id:uid(), classId:c.id, title:t, due:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`, createdAt:Date.now()+i};
+    S.assignments.push(a); saveAssign(a.id);
+    const m = {};
+    c.students.forEach((s,j)=>{
+      if(i===titles.length-1 && j>=18) return;
+      let v = 'ok';
+      const r = (j*31+i*17)%23;
+      if(j===4 && i>=2) v='miss'; else if(r===0) v='miss'; else if(r===1||r===2) v='part'; else if(r===3) v='late'; else if(r===4 && i===1) v='abs';
+      m[s.id] = v;
+    });
+    S.marks[a.id] = m; saveMarks(a.id);
+  });
+  if(mode==='cloud') loadedFor = c.id;
+  P.tab='grid'; savePrefs(); render(); toast('サンプルを追加しました（不要になったら「クラス・名簿」で削除できます）');
+}
+
+/* ---------- 操作 ---------- */
+function moveIn(d){ const c=curClass(); P.inputIdx=Math.max(0,Math.min(c.students.length-1,(P.inputIdx||0)+d)); savePrefs(); render(); }
+function setIn(v){
+  const c=curClass(); const s=c.students[P.inputIdx];
+  setMark(P.inputA, s.id, v);
+  if(v && P.inputIdx < c.students.length-1) P.inputIdx++;
+  else if(v) toast('最後の生徒まで入力しました');
+  savePrefs(); render();
+}
+function fillRest(aid, v){
+  const c=curClass(); const m={...(S.marks[aid]||{})}; let n=0;
+  for(const s of c.students) if(!m[s.id]){ m[s.id]=v; n++; }
+  S.marks[aid]=m; saveMarks(aid);
+  render(); toast(`${n}人を「${STATUS[v].label}」にしました`);
+}
+function amenu(aid){
+  const cls = curClass(), a = S.assignments.find(x=>x.id===aid), st = aStats(a,cls);
+  openDlg(`<h3>${esc(a.title)}</h3>
+    <div class="small muted num">提出率 ${pct(st.rate)}・✓${st.ok} △${st.part} 遅${st.late} ✗${st.miss} 休${st.abs}・未入力${st.blank}</div>
+    <div class="stack">
+      <button class="btn pri" data-act="aopen" data-a="${a.id}">この宿題を入力する</button>
+      <button class="btn" data-act="aok" data-a="${a.id}">未入力を全員 ✓提出 にする</button>
+      <button class="btn" data-act="amiss" data-a="${a.id}">未入力を全員 ✗未提出 にする</button>
+    </div>
+    <label>宿題名<input type="text" id="eTitle" value="${esc(a.title)}" autocomplete="off"></label>
+    <label>期限<input type="date" id="eDue" value="${esc(a.due)}"></label>
+    <div class="stack">
+      <button class="btn" data-act="asave" data-a="${a.id}">名前・期限を保存</button>
+      <button class="btn danger" data-act="adel" data-a="${a.id}">この宿題を削除</button>
+      <button class="btn" data-act="close">閉じる</button>
+    </div>`);
+}
+
+document.addEventListener('click', async e=>{
+  const tab = e.target.closest('.tab');
+  if(tab){ P.tab=tab.dataset.tab; savePrefs(); render(); window.scrollTo(0,0); return; }
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const act = el.dataset.act, cls = curClass();
+  switch(act){
+    case 'goto': P.tab=el.dataset.tab; savePrefs(); render(); break;
+    case 'sample': addSample(); break;
+    case 'cycle': {
+      const cur = getMark(el.dataset.a, el.dataset.s);
+      setMark(el.dataset.a, el.dataset.s, CYCLE[(CYCLE.indexOf(cur)+1)%CYCLE.length]); render(); break;
+    }
+    case 'csv': exportCSV(cls); break;
+    case 'amenu': amenu(el.dataset.a); break;
+    case 'close': closeDlg(); break;
+    case 'aopen': P.inputA=el.dataset.a; P.inputIdx=0; P.tab='input'; closeDlg(); savePrefs(); render(); break;
+    case 'aok': closeDlg(); fillRest(el.dataset.a,'ok'); break;
+    case 'amiss': closeDlg(); fillRest(el.dataset.a,'miss'); break;
+    case 'asave': {
+      const a = S.assignments.find(x=>x.id===el.dataset.a);
+      const t = $('#eTitle').value.trim(); if(t) a.title=t; a.due=$('#eDue').value;
+      saveAssign(a.id); closeDlg(); render(); toast('保存しました'); break;
+    }
+    case 'adel': {
+      const a = S.assignments.find(x=>x.id===el.dataset.a);
+      if(!await ask(`「${a.title}」とそのチェック記録を削除しますか？`)) return;
+      S.assignments = S.assignments.filter(x=>x.id!==a.id); delete S.marks[a.id];
+      if(mode==='cloud'){ persist('assigns/'+a.id, ()=>null); persist('marks/'+a.id, ()=>null); } else saveLocal();
+      render(); toast('削除しました'); break;
+    }
+    case 'setin': setIn(el.dataset.v); break;
+    case 'clearin': setMark(P.inputA, cls.students[P.inputIdx].id, ''); render(); break;
+    case 'prev': moveIn(-1); break;
+    case 'next': moveIn(1); break;
+    case 'nextblank': {
+      const n=cls.students.length;
+      for(let k=1;k<=n;k++){ const j=(P.inputIdx+k)%n; if(!getMark(P.inputA, cls.students[j].id)){ P.inputIdx=j; savePrefs(); render(); return; } }
+      toast('未入力の生徒はいません'); break;
+    }
+    case 'jump': P.inputIdx=+el.dataset.i; savePrefs(); render(); break;
+    case 'inview': P.inputView=el.dataset.v; savePrefs(); render(); break;
+    case 'lset': {
+      const cur = getMark(P.inputA, el.dataset.s);
+      setMark(P.inputA, el.dataset.s, cur===el.dataset.v ? '' : el.dataset.v); render(); break;
+    }
+    case 'restok': fillRest(P.inputA,'ok'); break;
+    case 'restmiss': fillRest(P.inputA,'miss'); break;
+    case 'clearall':
+      if(!await ask('この宿題の入力をすべてクリアしますか？', 'クリアする')) return;
+      S.marks[P.inputA] = {}; saveMarks(P.inputA); render(); break;
+    case 'copymiss': {
+      const a = S.assignments.find(x=>x.id===el.dataset.a);
+      const pick = k => cls.students.filter(s=>getMark(a.id,s.id)===k).map(s=>`${s.no}番 ${s.name}`).join('、') || 'なし';
+      copyText(`【${a.title}（${md(a.due)}）】\n未提出：${pick('miss')}\n不十分：${pick('part')}`); break;
+    }
+    case 'selclass': P.cur=el.dataset.c; P.inputIdx=0; savePrefs(); watchClass(); render(); break;
+    case 'renclass': {
+      const c = S.classes.find(x=>x.id===el.dataset.c);
+      const n = await askText('新しいクラス名', c.name);
+      if(n){ c.name=n; saveClass(c.id); render(); } break;
+    }
+    case 'delclass': {
+      const c = S.classes.find(x=>x.id===el.dataset.c);
+      if(!await ask(`「${c.name}」と、そのクラスの宿題・チェック記録をすべて削除しますか？元に戻せません。`)) return;
+      await removeClass(c.id); render(); toast('削除しました'); break;
+    }
+    case 'saveroster': {
+      cls.students = parseRoster($('#roster').value, cls.students);
+      saveClass(cls.id); document.activeElement?.blur(); render(); toast(`${cls.students.length}人の名簿を保存しました`); break;
+    }
+    case 'backup': {
+      try{
+        const data = await collectAll();
+        if(await saveFile(`宿題チェック_バックアップ_${today()}.json`, JSON.stringify({app:'hwcheck', version:2, ...data}, null, 1))){
+          P.lastBackup = Date.now(); savePrefs(); render();
+        }
+      }catch(err){ toast('バックアップを作れませんでした。通信を確認してください'); }
+      break;
+    }
+    case 'wipe':
+      if(!await ask('すべてのクラス・宿題・チェック記録を削除します。元に戻せません。よろしいですか？', 'すべて削除')) return;
+      for(const c of S.classes.slice()) await removeClass(c.id);
+      P.tab='settings'; savePrefs(); render(); toast('すべて削除しました'); break;
+  }
+});
+
+document.addEventListener('submit', e=>{
+  if(e.target.id==='dForm') return;
+  e.preventDefault();
+  if(e.target.id==='addA'){
+    const t=$('#aTitle').value.trim(); if(!t) return;
+    const a = {id:uid(), classId:P.cur, title:t, due:$('#aDue').value, createdAt:Date.now()};
+    S.assignments.push(a); saveAssign(a.id);
+    document.activeElement?.blur(); renderWaiting=false;
+    render(); toast('宿題を追加しました');
+    const w=$('.tablewrap'); if(w) w.scrollLeft=w.scrollWidth;
+  }
+  if(e.target.id==='addC'){
+    const n=$('#cName').value.trim(); if(!n) return;
+    const c={id:uid(), name:n, students:[], createdAt:Date.now()};
+    S.classes.push(c); P.cur=c.id; savePrefs(); saveClass(c.id); watchClass();
+    if(mode==='cloud') loadedFor = c.id;
+    document.activeElement?.blur(); renderWaiting=false;
+    render(); toast('クラスを追加しました。続けて名簿を貼り付けてください');
+    setTimeout(()=>{ const r=$('#roster'); if(r){ r.scrollIntoView({behavior:'smooth',block:'center'}); } }, 50);
+  }
+  if(e.target.id==='bulkForm'){
+    const c = curClass(), nos = parseNos($('#bulkNos').value), v = $('#bulkSt').value;
+    const hit = c.students.filter(s=>nos.has(String(+s.no)));
+    const found = new Set(hit.map(s=>String(+s.no)));
+    const unknown = [...nos].filter(n=>!found.has(n));
+    if(!hit.length){ toast('名簿にある番号を入力してください'); return; }
+    const m = {...(S.marks[P.inputA]||{})};
+    hit.forEach(s=>{ m[s.id]=v; });
+    S.marks[P.inputA] = m; saveMarks(P.inputA);
+    $('#bulkNos').value=''; renderWaiting=false;
+    render();
+    toast(`${hit.length}人を「${STATUS[v].label}」にしました` + (unknown.length?`（名簿にない番号：${unknown.join(',')}）`:''));
+  }
+});
+
+document.addEventListener('change', e=>{
+  if(e.target.id==='classSel'){ P.cur=e.target.value; P.inputIdx=0; savePrefs(); watchClass(); render(); }
+  if(e.target.id==='inSel'){ P.inputA=e.target.value; P.inputIdx=0; savePrefs(); render(); }
+  if(e.target.id==='rangeSel'){ P.range=e.target.value; savePrefs(); render(); }
+  if(e.target.id==='restore'){
+    const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    f.text().then(async t=>{
+      const j=JSON.parse(t);
+      if(!j || !Array.isArray(j.classes)) throw new Error('format');
+      if(!await ask(`バックアップ（${j.classes.length}クラス・宿題${(j.assignments||[]).length}件）を読み込みます。同じクラス・宿題は上書きされます。`, '読み込む', false)) return;
+      importData(j); saveLocal(); render(); toast('読み込みました');
+    }).catch(()=>toast('このファイルは読み込めませんでした。宿題チェックのバックアップ（.json）を選んでください'));
+  }
+});
+
+document.addEventListener('keydown', e=>{
+  if(P.tab!=='input' || P.inputView==='list' || $('#dlg').open) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
+  const c = curClass();
+  if(!c || !c.students.length || !assignsOf(c.id).length || !$('.big')) return;
+  const i = '12345'.indexOf(e.key);
+  if(i>=0){ setIn(KEYS[i]); e.preventDefault(); }
+  else if(e.key==='ArrowRight'){ moveIn(1); e.preventDefault(); }
+  else if(e.key==='ArrowLeft'){ moveIn(-1); e.preventDefault(); }
+  else if(e.key==='0'||e.key==='Delete'||e.key==='Backspace'){ setMark(P.inputA, c.students[P.inputIdx].id, ''); render(); e.preventDefault(); }
+});
+
+window.addEventListener('beforeunload', e=>{ if(pending.size){ e.preventDefault(); e.returnValue=''; } });
+
+async function boot(){
+  render();
+  if(window.claude && typeof window.claude.use==='function'){
+    try{
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      const id = user ? await user.id() : null;
+      if(db && id){
+        // 初回だけ自分の置き場所を作る。書き込めない共有権限なら端末保存に切り替える
+        const root = db.doc(`data/users/${id}/root`);
+        const snap = await root.get();
+        if(!snap.exists) await root.set({createdAt: Date.now()});
+        DB = db; BASE = `data/users/${id}/root/`;
+        mode = 'cloud'; render(); startCloud(); return;
+      }
+      localReason = id ? '' : 'signin';
+    }catch(e){ localReason = 'perm'; }
+  }
+  mode = 'local';
+  try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+  if(!window.claude && 'serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+  const j = lsGet(LOCAL_KEY);
+  if(j && Array.isArray(j.classes)){
+    S = {classes:j.classes, assignments:j.assignments||[], marks:j.marks||{}};
+    if(!P.cur && j.cur) P.cur = j.cur;
+  }
+  render();
+}
+boot();
+</script>
+
+</body>
+</html>
